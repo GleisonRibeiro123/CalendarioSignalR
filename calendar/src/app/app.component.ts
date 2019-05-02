@@ -33,6 +33,7 @@ import { Usuario } from './models/Usuario';
 import {
   HubConnection, HubConnectionBuilder, HttpTransportType
 } from '@aspnet/signalr';
+import { timeout } from 'rxjs/operators';
 
 
 const colors: any = {
@@ -62,24 +63,35 @@ export class AppComponent implements OnInit {
   constructor(private modal: NgbModal, private tarefaService: TarefaService) { }
 
   ngOnInit() {
-    this.hubConnection = new HubConnectionBuilder().withUrl('http://localhost:5000/tarefasHub', {
+    this.hubConnection = new HubConnectionBuilder().withUrl('http://192.168.1.127:6001/kanban', {
       skipNegotiation: true,
       transport: HttpTransportType.WebSockets
     }).build();
     this.hubConnection
       .start()
-      .then(() => this.hubConnection.invoke('SendToAll'))
+      .then(() => this.hubConnection.invoke('getEnviar'))
       .catch(err => console.log('Erro ao estabilizar conexão: '));
     console.log(this.hubConnection);
 
     this.hubConnection.on('Enviar', (tarefa) => {
-      this.tarefasDone = tarefa;
+      console.log('Tarefa');
+      console.log(tarefa);
+      this.tarefasTodo = tarefa.todo;
+      this.tarefasInPro = tarefa.inpro;
+      this.tarefasDone = tarefa.done;
+      this.events = [];
+      this.refresh.next();
+      this.tarefasTodo.forEach((element: any) => {
+        this.carregarEvent(element);
+      });
+      this.tarefasInPro.forEach((element: any) => {
+        this.carregarEvent(element);
+      });
       this.tarefasDone.forEach((element: any) => {
         this.carregarEvent(element);
       });
+
     });
-
-
 
     // this.getUsuario();
     // this.getAlltarefas();
@@ -163,10 +175,21 @@ export class AppComponent implements OnInit {
     event.start = newStart;
     event.end = newEnd;
     this.refresh.next();
-    console.log(event);
-    this.tarefaService.Update(newStart, newEnd, event).subscribe(
-      () => { this.tarefas; }
-    );
+    this.events = [];
+    this.hubConnection.invoke('Atualizar', event.id, event.start, event.end);
+    this.hubConnection.invoke('Update', event.id, event.start, event.end);
+    this.hubConnection.on('EnviarMudanca', (tarefa) => {
+    console.log(tarefa);
+    this.refresh.next();
+    this.events = [];
+    this.carregarEvent(tarefa);
+
+
+  });
+
+    // this.tarefaService.Update(newStart, newEnd, event).subscribe(
+    //   () => { this.tarefas; }
+    // );
 
     this.handleEvent('Dropped or resized', event);
   }
