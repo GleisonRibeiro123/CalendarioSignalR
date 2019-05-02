@@ -74,8 +74,6 @@ export class AppComponent implements OnInit {
     console.log(this.hubConnection);
 
     this.hubConnection.on('Enviar', (tarefa) => {
-      console.log('Tarefa');
-      console.log(tarefa);
       this.tarefasTodo = tarefa.todo;
       this.tarefasInPro = tarefa.inpro;
       this.tarefasDone = tarefa.done;
@@ -177,19 +175,14 @@ export class AppComponent implements OnInit {
     this.refresh.next();
     this.events = [];
     this.hubConnection.invoke('Atualizar', event.id, event.start, event.end);
-    this.hubConnection.invoke('Update', event.id, event.start, event.end);
+    this.hubConnection.invoke('UpdateCalendar', event.id, event.start, event.end);
     this.hubConnection.on('EnviarMudanca', (tarefa) => {
-    console.log(tarefa);
     this.refresh.next();
     this.events = [];
     this.carregarEvent(tarefa);
 
 
   });
-
-    // this.tarefaService.Update(newStart, newEnd, event).subscribe(
-    //   () => { this.tarefas; }
-    // );
 
     this.handleEvent('Dropped or resized', event);
   }
@@ -284,38 +277,6 @@ export class AppComponent implements OnInit {
     });
   }
 
-
-  // addTarefasTodo() {
-  //   this.tarefaService.getTarefasStatus().subscribe((response: any) => {
-  //     this.events = [];
-  //     this.tarefasTodo = response.todo;
-  //     this.tarefasTodo.forEach(element => {
-  //       this.carregarEvent(element);
-  //     });
-  //   });
-
-  // }
-  // addTarefasInProgress() {
-  //   this.tarefaService.getTarefasStatus().subscribe((response: any) => {
-  //     this.events = [];
-  //     this.tarefasInPro = response.inpro;
-  //     this.tarefasInPro.forEach(element => {
-  //       this.carregarEvent(element);
-  //     });
-  //   });
-  // }
-
-  // addTarefasDone() {
-  //   this.tarefaService.getTarefasStatus().subscribe((response: any) => {
-  //     this.events = [];
-  //     this.tarefasDone = response.done;
-  //     this.tarefasDone.forEach(element => {
-  //       this.carregarEvent(element);
-  //     });
-
-  //   });
-  // }
-
   carregarEvent(element) {
 
     let mycolors = [colors.red, colors.yellow, colors.blue];
@@ -346,7 +307,8 @@ export class AppComponent implements OnInit {
         status: element.status,
         prioridade: element.prioridade,
         responsavel: element.responsavel,
-        usuarioId: element.usuarioId
+        usuarioId: element.usuarioId,
+        prioridadeVisivel: myprioridade2
       }];
 
   }

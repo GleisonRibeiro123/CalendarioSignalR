@@ -19,11 +19,5 @@ export class DemoComponent {
 
   viewDate: Date = new Date();
 
-  events: CalendarEvent[] = [
-    {
-      title: 'An event',
-      start: new Date(),
-      color: colors.red
-    }
-  ];
+  events: CalendarEvent[] = [];
 }
