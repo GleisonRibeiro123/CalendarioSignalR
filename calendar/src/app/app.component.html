@@ -12,7 +12,7 @@
     </ul>
   </div>
 </nav>
-
+{{valorUsuario}}
 <div class="row">
   <div class="col-lg-3">
     <div class="card">
@@ -27,7 +27,28 @@
     <br>
 
     <div class=" scrollTarefas">
-      <div class="card" *ngFor="let event of tarefas">
+      <h3>Todo:</h3>
+      <div class="card" *ngFor="let event of tarefasTodo">
+        <div class="card-body">
+          <ng-scrollbar #scrollable [disableOnBreakpoints]="true">
+            Título: {{event.title}}<br>
+            Data de Inicio: {{event.dataPrevInicio}}<br>
+            Data de Termino: {{event.dataPrevTermino}}
+          </ng-scrollbar>
+        </div>
+      </div>
+      <h3>In Progress:</h3>
+      <div class="card" *ngFor="let event of tarefasInPro">
+        <div class="card-body">
+          <ng-scrollbar #scrollable [disableOnBreakpoints]="true">
+            Título: {{event.title}}<br>
+            Data de Inicio: {{event.dataPrevInicio}}<br>
+            Data de Termino: {{event.dataPrevTermino}}
+          </ng-scrollbar>
+        </div>
+      </div>
+      <h3>Done:</h3>
+      <div class="card" *ngFor="let event of tarefasDone">
         <div class="card-body">
           <ng-scrollbar #scrollable [disableOnBreakpoints]="true">
             Título: {{event.title}}<br>

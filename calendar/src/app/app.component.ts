@@ -17,7 +17,10 @@ import {
   endOfMonth,
   isSameDay,
   isSameMonth,
-  addHours
+  addHours,
+  subWeeks,
+  startOfMonth,
+  addWeeks
 } from 'date-fns';
 import { Subject } from 'rxjs';
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
@@ -25,7 +28,8 @@ import {
   CalendarEvent,
   CalendarEventAction,
   CalendarEventTimesChangedEvent,
-  CalendarView
+  CalendarView,
+  CalendarUtils
 } from 'angular-calendar';
 import { forEach } from '@angular/router/src/utils/collection';
 import { core, IfStmt } from '@angular/compiler';
@@ -33,9 +37,15 @@ import { Usuario } from './models/Usuario';
 import {
   HubConnection, HubConnectionBuilder, HttpTransportType
 } from '@aspnet/signalr';
-import { timeout } from 'rxjs/operators';
-
-
+import { timeout, timeInterval } from 'rxjs/operators';
+import { GetMonthViewArgs, MonthView } from 'calendar-utils';
+export class MyCalendarUtils extends CalendarUtils {
+  getMonthView(args: GetMonthViewArgs): MonthView {
+    args.viewStart = subWeeks(startOfMonth(args.viewDate), 0.5);
+    args.viewEnd = addWeeks(endOfMonth(args.viewDate), 0.5);
+    return super.getMonthView(args);
+  }
+}
 const colors: any = {
   red: {
     primary: 'red',
@@ -55,50 +65,18 @@ const colors: any = {
   selector: 'app-root',
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './app.component.html',
+  providers: [
+    {
+      provide: CalendarUtils,
+      useClass: MyCalendarUtils
+    }
+  ],
   styleUrls: ['./app.component.css']
 })
 export class AppComponent implements OnInit {
   [x: string]: any;
 
   constructor(private modal: NgbModal, private tarefaService: TarefaService) { }
-
-  ngOnInit() {
-    this.hubConnection = new HubConnectionBuilder().withUrl('http://192.168.1.127:6001/kanban', {
-      skipNegotiation: true,
-      transport: HttpTransportType.WebSockets
-    }).build();
-    this.hubConnection
-      .start()
-      .then(() => this.hubConnection.invoke('getEnviar'))
-      .catch(err => console.log('Erro ao estabilizar conexão: '));
-    console.log(this.hubConnection);
-
-    this.hubConnection.on('Enviar', (tarefa) => {
-      this.tarefasTodo = tarefa.todo;
-      this.tarefasInPro = tarefa.inpro;
-      this.tarefasDone = tarefa.done;
-      this.events = [];
-      this.refresh.next();
-      this.tarefasTodo.forEach((element: any) => {
-        this.carregarEvent(element);
-      });
-      this.tarefasInPro.forEach((element: any) => {
-        this.carregarEvent(element);
-      });
-      this.tarefasDone.forEach((element: any) => {
-        this.carregarEvent(element);
-      });
-
-    });
-
-    // this.getUsuario();
-    // this.getAlltarefas();
-    // this.addTarefasTodo();
-    // this.addTarefasInProgress();
-    // this.addTarefasDone();
-    // this.getTarefasUsuario('todos');
-
-  }
 
   @ViewChild('modalContent') modalContent: TemplateRef<any>;
 
@@ -108,8 +86,9 @@ export class AppComponent implements OnInit {
   tarefasInPro: Tarefa[];
   tarefasDone: Tarefa[];
   usuarios: Usuario[];
-
-  valorUsuario: any = -1;
+  // tem que inicializar ele, só verifica se é Todos ou todos. Pera
+  // O problema é que não está alterando o valor, assim que envio o select
+  valorUsuario: any = 'todos';
 
   view: CalendarView = CalendarView.Month;
 
@@ -126,15 +105,8 @@ export class AppComponent implements OnInit {
   actions: CalendarEventAction[] = [
     {
       label: '<i class="fa fa-fw fa-pencil"></i>',
-      onClick: ({ event }: { event: CalendarEvent }): void => {
-        this.handleEvent('Edited', event);
-      }
-    },
-    {
-      label: '<i class="fa fa-fw fa-times"></i>',
-      onClick: ({ event }: { event: CalendarEvent }): void => {
-        this.events = this.events.filter(iEvent => iEvent !== event);
-        this.handleEvent('Deleted', event);
+      onClick: (): void => {
+        console.log('Clicou');
       }
     }
   ];
@@ -144,6 +116,57 @@ export class AppComponent implements OnInit {
   events: CalendarEvent[] = [];
 
   activeDayIsOpen: boolean = true;
+
+  ngOnInit() {
+    this.hubConnection = new HubConnectionBuilder().withUrl('http://192.168.1.127:6001/kanban', {
+      skipNegotiation: true,
+      transport: HttpTransportType.WebSockets
+    }).build();
+    this.hubConnection
+      .start()
+      .then(() => this.hubConnection.invoke('getCalendar'))
+      .catch(err => console.log('Erro ao estabilizar conexão: '));
+    this.hubConnection.on('EnviarCalendar', (tarefa) => {
+      this.carregar(tarefa);
+
+
+    });
+
+    this.hubConnection.on('EnviarTodos', (tarefa) => {
+      if (this.valorUsuario == 'todos') {
+        this.carregar(tarefa);
+      }
+
+    });
+
+    this.hubConnection.on('EnviarUpdate', (tarefa) => {
+
+      if (this.valorUsuario != 'todos') {
+        this.carregar(tarefa);
+      }
+
+    });
+
+    this.hubConnection.on('EnviarUsuario', (usuario) => { this.usuarios = usuario, this.refresh.next(); });
+
+  }
+  carregar(tarefa) {
+    this.events = [];
+    this.tarefasTodo = tarefa.todo;
+    this.tarefasInPro = tarefa.inpro;
+    this.tarefasDone = tarefa.done;
+    this.events = [];
+    this.refresh.next();
+    this.tarefasTodo.forEach((element: any) => {
+      this.carregarEvent(element);
+    });
+    this.tarefasInPro.forEach((element: any) => {
+      this.carregarEvent(element);
+    });
+    this.tarefasDone.forEach((element: any) => {
+      this.carregarEvent(element);
+    });
+  }
 
   dayClicked({ date, events }: { date: Date; events: CalendarEvent[] }): void {
     if (isSameMonth(date, this.viewDate)) {
@@ -173,16 +196,10 @@ export class AppComponent implements OnInit {
     event.start = newStart;
     event.end = newEnd;
     this.refresh.next();
-    this.events = [];
-    this.hubConnection.invoke('Atualizar', event.id, event.start, event.end);
+
+
     this.hubConnection.invoke('UpdateCalendar', event.id, event.start, event.end);
-    this.hubConnection.on('EnviarMudanca', (tarefa) => {
-    this.refresh.next();
-    this.events = [];
-    this.carregarEvent(tarefa);
 
-
-  });
 
     this.handleEvent('Dropped or resized', event);
   }
@@ -204,77 +221,27 @@ export class AppComponent implements OnInit {
     this.activeDayIsOpen = false;
   }
 
-  eventClicked({ event }: { event: CalendarEvent }): void {
-    console.log('Event clicked', event);
-  }
-  getTarefas() {
-    this.tarefas = [];
-    this.tarefaService.getTarefa().subscribe(
-      (_tarefas: Tarefa[]) => {
-        this.tarefas = _tarefas;
-        this.addEvent();
-      }
-    );
-  }
-
   getUsuario() {
-    this.tarefaService.getUsuario().subscribe(
-      (_usuario: Usuario[]) => {
-        this.usuarios = _usuario;
-        this.refresh.next();
-      }
-    );
+    this.hubConnection.on("Enviar", (usuario) => {
+      this.usuarios = usuario;
+
+    });
   }
 
   getTarefasUsuario(nome: string) {
     this.events = [];
     if (nome.toLocaleLowerCase() === 'todos') {
-      this.addTarefasInProgress();
-      this.addTarefasDone();
-      this.addTarefasTodo();
+      this.hubConnection.invoke('getCalendar');
+      this.hubConnection.on('EnviarCalendar', (tarefa) => {
+        console.log(tarefa);
+        this.carrgar(tarefa);
+      });
     } else {
-      this.tarefaService.getTarefasByUsuario(nome).subscribe((evento: any) => {
-
-        this.tarefasDone = evento.done;
-        this.tarefasInPro = evento.inpro;
-        this.tarefasTodo = evento.todo;
-
-        this.tarefasDone.forEach((element: any) => {
-          this.carregarEvent(element);
-        });
-        this.refresh.next();
-        this.tarefasTodo.forEach((element: any) => {
-          this.carregarEvent(element);
-        });
-        this.refresh.next();
-        this.tarefasInPro.forEach((element: any) => {
-          this.carregarEvent(element);
-        });
-      }
-      );
-
+      this.hubConnection.invoke('FiltrarUsuarioCalendar', nome);
+      this.hubConnection.on('EnviarCalendar', (tarefa) => {
+        this.carregar(tarefa);
+      });
     }
-  }
-  getAlltarefas() {
-    this.tarefaService.getTarefasStatus().subscribe((response: any) => {
-      // this.events = [];
-
-      this.tarefasDone = response.done;
-      this.tarefasInPro = response.inpro;
-      this.tarefasTodo = response.todo;
-      this.tarefasDone.forEach((element: any) => {
-        this.carregarEvent(element);
-      });
-      this.refresh.next();
-      this.tarefasTodo.forEach((element: any) => {
-        this.carregarEvent(element);
-      });
-      this.refresh.next();
-      this.tarefasInPro.forEach((element: any) => {
-        this.carregarEvent(element);
-      });
-
-    });
   }
 
   carregarEvent(element) {
@@ -300,8 +267,8 @@ export class AppComponent implements OnInit {
           beforeStart: true,
           afterEnd: true
         },
-        dataRealInicio: element.dataRealInicio,
-        dataRealTermino: element.dataRealTermino,
+        dataRealInicio: element.dataPrevInicio,
+        dataRealTermino: element.dataPrevTermino,
         tempoEsforcoPrevisto: element.tempoEsforcoPrevisto,
         tempoEsforcoReal: element.tempoEsforcoReal,
         status: element.status,
@@ -310,15 +277,5 @@ export class AppComponent implements OnInit {
         usuarioId: element.usuarioId,
         prioridadeVisivel: myprioridade2
       }];
-
-  }
-  getTarefasStatus() {
-    this.tarefaService.getTarefasStatus().subscribe((response: any) => {
-      this.tarefasTodo = response.todo;
-      this.tarefasInPro = response.inpro;
-      this.tarefasDone = response.done;
-    }, error => {
-      console.log(error);
-    });
   }
 }

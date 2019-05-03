@@ -3,7 +3,7 @@
 }
 
 .scrollTarefas {
-  height:650px;
+  height:1000px;
   overflow-y: auto;
 }
 .card-body:hover{

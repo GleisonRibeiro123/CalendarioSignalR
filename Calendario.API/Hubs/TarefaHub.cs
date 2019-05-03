@@ -40,7 +40,8 @@ namespace Calendario.API
             var novidade = await _repository.GetAllTarefasAsync();
             await Clients.All.Enviar(novidade);
         }
-        
+
+
 
     }
 }
